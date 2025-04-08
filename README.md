@@ -5,9 +5,18 @@ This tutorial will guide you through the porcess of creating an structural annot
 
 # 1. Gene model training
 
+AUGUSTUS has multiple gene models that can be used to produce an initial annotation on a given genome. However, this models are tailored to specific species, being adapted to their genomes and gene content. Thus, in the case of having a species that is not present within Augustus model, we need to create our own gene model. In order to achieve this, in this tutorial we will create two main resources: 
+
+1. A gene model from a set of high-confidence genes
+2. Hints derived from an lr-RNASeq experiment
+
 ## 1.1 Preprocessing and gene set creation
 
-The first step in the workflow, where our tutorial begins, is to create a set of high confidence genes, with their CDS known. This might come from many sources, such as another version of our organism, a closely related species or a prediction on our own genome. For the sake of this tutorial, and choosing the most complex case, we will use a set of genes that comes from our own genome. Eventhough this migth seem redundandt, we will first predict a set of high confidence genes in order to create a gene model to do the _evidence-driven_ prediction. To fulfill this goal, we will use **BUSCO.** BUSCO is a tool that was designed to produce an assessment of the quality of an assembled genome or proteome, by determning how many genes are present from a set of core genes. BUSCO has multiple datasets that contain genes that should be present in all the species that are under the evolutionary point of a certain bracnh of a phylogeitc tree. Thus, it is important to select among the datasets that busco has available the one that suits each species the most. That can be done through the followign command:
+The first step in the workflow, and where our tutorial begins, is to create a set of high confidence genes, with known their coding sequence (CDS).These genes can originate from various sources, such as a previous version of the organism's genome, a closely related species, or predictions based on the genome under study. For the purposes of this tutorial, we will tackle the most complex scenario: deriving high-confidence genes directly from our own genome. While this may appear redundant, this step is essential to build an initial gene model that will serve as a foundation for evidence-driven gene prediction.
+
+To achieve this, we will utilize **BUSCO** (Benchmarking Universal Single-Copy Orthologs), a widely used tool designed to assess the completeness of genome assemblies and annotated gene sets. BUSCO identifies genes based on their evolutionary conservation as single-copy orthologs across specific phylogenetic branches. These conserved genes are expected to be present in all species within a lineage and typically exist as single copies. We can take advantage of this well conserved genes to produce an initial training set for AUGUSTUS based on the single-copy core genes that we find in our genome.
+
+BUSCO offers multiple lineage-specific datasets tailored to different lineages of organisms. It is highly important to select the dataset that is the closest to our target species, to have as many genes as possible in the initial search. In order to check which datasets are available in BUSCO, and the one that is the most suitable for a given experiment, you can run the following command:
 
 ```bash
 busco --list-dataset
@@ -15,7 +24,7 @@ busco --list-dataset
 
 This command will produce a list of the different datasets that BUSCO has available in its database. You will have to select the closest to you sample's taxonomy. 
 
-## Question -> Which dataset would you select for the tutorial sample?
+ Question -> Which dataset would you select for the tutorial sample?
 <details><summary>Solution</summary>
 Here is some more text that was hidden before.
 </details>
