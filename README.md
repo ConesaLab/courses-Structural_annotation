@@ -189,8 +189,215 @@ In this final section, lnc-RNA sequencing data will be integrated as part of the
 
 ## 3.1 Preprocessing of lr-RNA seq data
 
-We will assume that we have a final file with the processed RNA long reads. The first step will be to map our reads to the reference genome, and produce the initial transcriptome. For that, we will use [IsoQuant](https://github.com/ablab/IsoQuant)
+We will assume that we have a final file with the processed RNA long reads. There are many ways in which we can process them and obtain a final transcriptome. In this course, we will use [IsoQuant](https://github.com/ablab/IsoQuant), as it usually yields the most consistent results, with the cost of misperforming in novel trancsripts discovery. However, for our pursposes, it will be better to have a more conservative approach. Another pipeline for this task could be [IsoSeq3](https://isoseq.how/), which is more complex, as processes the reads from their initial subread state, shows more diversity and less consistency among biological replicates. 
+
+With this in mind, lets run isoquant 😄
 
 ```bash
+isoquant.py --reference /PATH/TO/reference_genome.fasta \
+  --fastq /PATH/TO/sample1.fastq.gz  \
+  --data_type pacbio -o OUTPUT_FOLDER
+```
+
+With the raw transcriptome in ready, it is time to curate it before use. For that, we will use [SQANTI3](https://github.com/ConesaLab/SQANTI3). SQANTI3 is a tool desinged for the quality control, curation and annotation of lon-read trasnscriptomes, specifically desinged for lr-RNA data. The main module that we will use is the Quality Control module (SQANTI3 QC). This module operates by classifiying all the isoforms within a transciptome into one of the possible structural categories. As well, it has the ability to integrate a variaty of orthogonal data into the results and the classification process, such as short-read data or CAGE-seq data. If you want to know more about it, you can check out the [wiki](https://github.com/ConesaLab/SQANTI3/wiki)
+
+<details>
+<summary><strong>SQANTI3 structural categories</strong></summary>
+
+1. <strong>Full-Splice-Match (FSM):</strong> Transcript models where all splice junctions perfectly match a known reference transcript.  
+2. <strong>Incomplete-Splice-Match (ISM):</strong> Transcript models that match a consecutive subset of splice junctions of a known reference transcript.  
+3. <strong>Novel-In-Catalog (NIC):</strong> Transcript models with at least one splice junction not present in the reference annotation, but formed by known splice sites.  
+4. <strong>Novel-Not-In-Catalog (NNC):</strong> Transcript models with at least one splice junction that utilizes a novel splice site not present in the reference annotation.  
+5. <strong>Antisense:</strong> Transcript models that align to a gene locus but on the opposite strand to all annotated transcripts of that gene.  
+6. <strong>Fusion:</strong> Transcript models whose exons align to two or more distinct gene loci.  
+7. <strong>Genic genomic:</strong> Transcript models composed of exons that align within a gene locus but do not reconstruct any known or novel splicing pattern.  
+8. <strong>Intergenic:</strong> Transcript models whose exons align to genomic regions outside of any annotated gene.  
+
+</details><br>
+In order to run SQANTI3 we need three mandatory inputs: 
+
+1. Raw transcriptome, either in gtf or fasta format
+2. Reference genome, in fasta format
+3. Reference annotation, in gtf format
+
+In our case, we already have the transcriptome and the reference genome, and we will use the _ab initio_ annotation as the reference annotation. This is because we do not care right now about the structural categories, but we want the other information that SQANTI3 provides, such as if any isoform has Retrotrasncriptase switching (RT-Switching) or non-cannonical junctions. We will use these parameters as the initial filters of our transcriptome.
+
+```bash 
+conda activate sqanti3
+sqanti3_qc.py results/isoquant/OUT/OUT.transcript_models.gtf \
+    $reference_gtf $reference_genome \
+    -d results/sqanti -o isoforms \
+    -t 5 --report skip 
+
+# SQANTI filtering
+sqanti3_filter.py rules results/sqanti/isoforms_classification.txt --gtf results/sqanti/isoforms_corrected.gtf \
+    --skip_report -j data/isoform_filter.json \
+    -d results/sqanti  -o isoforms 
+```
+
+<!---
+TODO: Explain a bit SQANTI filter and add the explanation of the json file
+-->
+
+In the second part, we use the filter module of SQANTI
+
+<details><summary>Filter rules</summary>
+The filtering rules are defined in a JSON file, which contains the following:
+
+```json
+{
+  "rest":[{
+      "perc_A_downstream_TTS":[0,59],
+      "all_canonical":"canonical",
+      "RTS_stage":"FALSE",
+      "exons": 2
+    }
+  ]
+}
+```
+</details><br>
+
+**:question: Trivia: How many different genes have been left after filtering?**
+
+<details><summary>Solution</summary>
+To be filled
+</details><br>
+
+# 3.2 Hint creation
+
+The final step of the transcriptome preprocessing is to generate a hints file, which is the format that Augustus will use to merge the lr-RNA evidence with the previous gene model. 
+
+```bash
+# Extract the filtered isoforms
+grep -f results/sqanti/isoforms_inclusion-list.txt results/sqanti/isoforms_corrected.gtf.cds.gff > results/sqanti/isoforms_corrected_filtered.gtf.cds.gff
+
+# Hint creation
+tmp_dir=results/hints/tmp
+mkdir -p $tmp_dir
+grep -P  "\t(CDS|exon)\t" results/sqanti/isoforms_corrected_filtered.gtf.cds.gff | gtf2gff.pl --printIntron --out=$tmp_dir/tmp.gff
+# Remove gene_id and change transcript id for grp_id
+sed -i 's/gene_id[^;]*;//g' $tmp_dir/tmp2.gff
+sed -i 's/transcript_id \\"/grp=/g' $tmp_dir/tmp2.gff
+# Add the source
+cat $tmp_dir/tmp2.gff | sed "s/\\";/;pri=1;src=PB/g" > {output}
+rm -r $tmp_dir
 
 ```
+
+The hints file creation follows a complex process, which is described in the following steps:
+
+<details>
+<summary>Hint creation process</summary>
+
+1. <strong>Filtering the input GTF file:</strong> The script filters the input GTF file to extract only the relevant features (CDS, exon, or intron) based on the specified UTR option. It uses <code>grep</code> to search for lines containing the specified feature types and then converts the GTF format to GFF format using <code>gtf2gff.pl</code>. The output is stored in a temporary directory.  
+
+2. <strong>Removing gene_id and changing transcript_id:</strong> The script removes the <code>gene_id</code> field from the GFF file and replaces the <code>transcript_id</code> field with <code>grp_id</code>. This is done using <code>sed</code> to perform in-place text replacements.  
+
+3. <strong>Adding source information:</strong> The script adds source information to the GFF file by replacing the <code>"</code> character with a custom string that includes the source (<code>PB</code>) and priority (<code>pri=1</code>). This is done using <code>sed</code> again.  
+
+4. <strong>Outputting the final hints file:</strong> The final hints file is created by redirecting the modified GFF content to the specified output file. The temporary directory is removed afterward.  
+</details> <br>
+
+
+# 3.3 Final evidence-driven annotation
+
+Now that we have the hints file, we can run Augustus again, but this time with the `--hints` flag. This will allow Augustus to use the hints file as a guide for the prediction. 
+
+```bash
+augustus --species={params.name} {input.genome} --protein=on --codingseq=on \
+  --hintsfile={input.hints} --extrinsicCfgFile={params.cfg} > {output}
+```
+The `--extrinsicCfgFile` parameter is used to specify the configuration file that contains the parameters for the hints. This file can be copied directly from the Augustus configuration directory and you should only add your source under the `[SOURCES]` section. The hints file will be used to guide the prediction, and the configuration file will specify how to use the hints. In our case, just copy the code below.
+
+<details>
+<summary>Configuration file</summary>
+
+```ini
+# extrinsic information configuration file for AUGUSTUS
+# include with --extrinsicCfgFile=filename
+# date: 2025-04-08
+# Pablo Atienza (pablo.atienza@csic.es)
+
+
+# source of extrinsic information:
+# M manual anchor (required)
+# P protein database hit
+# E est database hit
+# C combined est/protein database hit
+# D Dialign
+# R retroposed genes
+# T transMapped refSeqs
+# PB PacBio (long reads, circular consensus)
+
+[SOURCES]
+M RM PB
+
+#
+# individual_liability: Only unsatisfiable hints are disregarded. By default this flag is not set
+# and the whole hint group is disregarded when one hint in it is unsatisfiable.
+# 1group1gene: Try to predict a single gene that covers all hints of a given group. This is relevant for
+# hint groups with gaps, e.g. when two ESTs, say 5' and 3', from the same clone align nearby.
+#
+[SOURCE-PARAMETERS]
+PB individual_liability
+#   feature        bonus         malus   gradelevelcolumns
+#		r+/r-
+#
+# the gradelevel colums have the following format for each source
+# sourcecharacter numscoreclasses boundary    ...  boundary    gradequot  ...  gradequot
+# 
+
+[GENERAL]
+      start     1          1  M    1  1e+100  RM  1     1    PB    1       1
+       stop     1          1  M    1  1e+100  RM  1     1    PB    1       1
+        tss     1          1  M    1  1e+100  RM  1     1    PB    1       1
+        tts     1          1  M    1  1e+100  RM  1     1    PB    1       1
+        ass     1          1  M    1  1e+100  RM  1     1    PB    1       1
+        dss     1          1  M    1  1e+100  RM  1     1    PB    1       1
+   exonpart     1       0.98  M    1  1e+100  RM  1     1    PB    1       1e5
+       exon     1          1  M    1  1e+100  RM  1     1    PB    1       1e10
+ intronpart     1          1  M    1  1e+100  RM  1     1    PB    1       1e5  
+     intron     1         .1  M    1  1e+100  RM  1     1    PB    1       1e10  
+    CDSpart     1          1  M    1  1e+100  RM  1     1    PB    1       1e5
+        CDS     1          1  M    1  1e+100  RM  1     1    PB    1       1e15
+    UTRpart     1          1  M    1  1e+100  RM  1     1    PB    1       1
+        UTR     1          1  M    1  1e+100  RM  1     1    PB    1       1
+     irpart     1          1  M    1  1e+100  RM  1     1    PB    1       1
+nonexonpart     1          1  M    1  1e+100  RM  1  1.15    PB    1       1
+  genicpart     1          1  M    1  1e+100  RM  1     1    PB    1       1
+
+
+#
+# Explanation: see original extrinsic.cfg file
+#
+```
+
+</details><br>
+
+# 3.4 Quality control
+
+The quality control of the final annotation is the same as before, but this time we will use the new annotation file as input for BUSCO and OMARk. 
+
+Try to do it in your own 😉
+
+<details>
+<summary>Click here if desperate (or lazy)</summary>
+
+```bash
+# Proteome conversion
+getAnnoFasta.pl {input.annot} 
+# OMARk
+omamer --db {input.omark_db} --query {input.proteome} --out {output}
+omark -f {input.omamer} -d {input.omark_db} -o $(dirname {output})
+# BUSCO
+busco -i {input.proteome} -o {output} -l {params.lineage} \
+            -m proteins -c {threads} --force --download_path {dir.busco_dir}
+# AGAT
+```
+</details><br>
+
+# 4. Conclusion
+
+With this, you have reached the end of this tutorial. You have learned how to create a gene model from scratch, how to use it to predict genes in a genome and how to use lr-RNA seq data to improve the prediction. You have also learned how to assess the quality of the annotation using different tools.
+
+Now, compare the results of the first and second annotation. What are the main differences? Do you think that the lr-RNA seq data improved the prediction? Why?
