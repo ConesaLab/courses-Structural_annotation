@@ -2,6 +2,54 @@
 
 This tutorial will guide you through the porcess of creating an structural annotation using a reference genome and long reads RNA data from a PacBio sequencing experiment. 
 
+<details>
+<summary>Theorical background</summary>
+
+The first step in understanding a genome typically involves structural annotation—the process of identifying protein-coding genes and their associated features. One core method used in this phase is ab initio gene prediction, which relies solely on the genomic sequence itself. This approach uses statistical models, such as Hidden Markov Models (HMMs) [1–3], trained to detect signal sensors—including splice sites, start codons, and stop codons [4, 5]—as well as content sensors, like codon usage patterns that are characteristic of coding regions [4].
+
+While ab initio prediction is valuable because it does not require prior experimental data [6], it often struggles with lower accuracy, especially in capturing complete gene structures, untranslated regions (UTRs), and alternative isoforms [6, 7]. Moreover, its effectiveness is heavily dependent on the availability of species-specific training models [6].
+
+To address these limitations, evidence-based genome annotation combines experimental data with ab initio predictions to enhance accuracy [8, 9]. Among the most powerful sources of evidence is long-read RNA sequencing (lr-RNA seq) [10, 11]. Unlike traditional short-read RNA-seq, lr-RNA seq can capture full-length transcripts, offering direct insights into exon-intron boundaries, alternative splicing, transcription start and end sites, and UTRs [8, 11].
+
+When used as extrinsic evidence or "hints" [8, 12, 13], lr-RNA seq data can dramatically improve the performance of ab initio gene finders like AUGUSTUS [1, 8, 14, 15]. This integration results in more accurate and complete gene models [8, 16], enabling the identification of novel isoforms and providing a deeper understanding of the transcriptome. Such an approach is especially valuable for the annotation of non-model organisms, where genomic resources are often limited [8, 11, 17].
+</details><br>
+
+We will use a range of tools to obtain both an _ab initio_ and an evidence-driven annotation. The tools that we will use are:
+
+1. **BUSCO** to produce a set of high-confidence genes and assess the completeness of the genome and the annotation
+2. **AUGUSTUS** to generate the gene model and both annotations
+3. **AGAT** to extract the proteome from the annotation
+4. **cd-hit** will clusters the high-confidence genes to eliminate redundancy
+5. **IsoQuant** to produce the lr-RNA seq transcriptome from the raw lr-RNA seq data
+6. **OMARk** to assess the completeness and consistency of the proteome
+7. **SQANTI3** to filter the raw transcriptome and eliminate low quality isoforms
+
+# 0. Prerequisites 
+
+Before starting the tutorial, it is key to have a clean and organized working environment. The first step, even before processing any data is to prepare the working environment. In bioinformatics, an organized workspace is vital, so when you come after some time to your project, you can find and understand whant you were doing, rather thatn spend hours searching through weirldy named directories. It is inportant to always create three directories:
+
+
+- scripts: all the scripts will be stored here, with meaningful names
+- data: Raw data will go in here and, if you want and need, databases
+- results: Create a sub directory for every different process you do. If you run a process multiple times with different parameters, include them in the directory name, so you will differenciate them in the future.
+
+```bash
+mkdir scripts
+mkdir data
+```
+
+Most of the tools can be directly installed using conda (or mamba), with the exception of SQANTI3, which needs to be downloaded from GitHub and the scripts added to the path. This is simple and can be done by following [this tutorial](https://github.com/ConesaLab/SQANTI3/wiki/Dependencies-and-installation).
+
+<details><summary>🛠️ SQANTI3 Installation </summary>
+
+```bash
+wget https://github.com/ConesaLab/SQANTI3/releases/download/v5.3.6/SQANTI3_v5.3.6.zip
+mkdir -p tools/sqanti3
+unzip SQANTI3_v5.3.6.zip -d tools/sqanti3
+# Install the SQANTI3 conda environment
+conda env create -f tools/sqanti3/SQANTI3.conda_env.yml
+```
+</details><br>
 
 # 1. Gene model training
 
@@ -401,3 +449,19 @@ busco -i {input.proteome} -o {output} -l {params.lineage} \
 With this, you have reached the end of this tutorial. You have learned how to create a gene model from scratch, how to use it to predict genes in a genome and how to use lr-RNA seq data to improve the prediction. You have also learned how to assess the quality of the annotation using different tools.
 
 Now, compare the results of the first and second annotation. What are the main differences? Do you think that the lr-RNA seq data improved the prediction? Why?
+
+
+## Introduction to Genome Annotation
+
+The initial step in deciphering a genome often involves **structural annotation**, which is primarily the identification of **protein-coding genes** and their features. One fundamental method is **ab initio gene prediction**. This computational approach identifies genes based solely on the **genomic DNA sequence**, employing **statistical models** such as **Hidden Markov Models (HMMs)**. These models are trained to recognize intrinsic **sequence signals**, including **splice sites, start and stop codons**, and characteristic **sequence content**, like **codon usage bias** within coding regions [1, 2]. While the advantage of *ab initio* prediction is that it can discover genes without prior experimental data, it often exhibits **limitations in accuracy**, particularly in predicting complete gene structures, untranslated regions (UTRs), and the full spectrum of alternative splice variants. Furthermore, the effectiveness of *ab initio* methods is highly dependent on the availability of **species-specific training parameters** for the underlying statistical models [3].
+
+To address the inherent limitations of *ab initio* approaches, **evidence-driven genome annotation** has emerged as a powerful alternative. This strategy integrates **experimental data** with *ab initio* gene prediction programs to enhance their accuracy and reliability [4, 5]. A particularly transformative source of evidence is **long-read RNA sequencing (lr-RNA seq)** [6, 7]. Unlike traditional short-read RNA-seq, lr-RNA seq technologies can sequence **full-length transcript molecules**, providing direct and comprehensive information about **exon-intron boundaries, alternative splicing events, transcription start and polyadenylation sites, and even untranslated regions (UTRs)** [5, 7, 8]. By utilizing processed lr-RNA seq data as **extrinsic evidence** or "hints" for *ab initio* gene finders like **AUGUSTUS** [1, 4], the accuracy and completeness of gene predictions can be significantly improved [4, 5]. This evidence-based integration facilitates the refinement of gene models, the identification of novel isoforms, and a more complete understanding of the transcriptome, proving especially valuable for the annotation of **non-model organisms** where pre-existing genomic information may be limited [4, 7].
+
+## References
+
+1. Scalzitti, N., Jeannin-Girardon, A., Collet, P., Poch, O., & Thompson, J. D. (2020). A benchmark study of ab initio gene prediction methods in diverse eukaryotic organisms. *BMC Genomics*, *21*(1), 293.
+2. Stanke, M., & Waack, S. (2003). Gene prediction with a hidden Markov model and a new intron submodel. *Bioinformatics*, *19*(Suppl. 2), ii215–ii225.
+3.   Stanke, M., Schöffmann, O., Morgenstern, B., & Waack, S. (2006). Gene prediction in eukaryotes with a generalized hidden Markov model that uses hints from external sources. *BMC Bioinformatics*, *7*, 62.
+4.   Yandell, M., & Ence, D. (2012). A beginner’s guide to eukaryotic genome annotation. *Nature Reviews Genetics*, *13*(5), 329–342.
+5.   Paniagua, A., Agustín-García, C., Pardo-Palacios, F. J., Brown, T., De Maria, M., Denslow, N. D., Mazzoni, C. J., & Conesa, A. (2025). Evaluation of strategies for evidence-driven genome annotation using long-read RNA-seq. *Genome Research*, *35*(1), 1–12.
+6.   Stanke, M., Steinkamp, R., Waack, S., & Morgenstern, B. (2004). AUGUSTUS: a web server for gene finding in eukaryotes. *Nucleic Acids Research*, *32*(Web Server issue), W309–W312.
