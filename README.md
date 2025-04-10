@@ -25,6 +25,23 @@ We will use a range of tools to obtain both an _ab initio_ and an evidence-drive
 6. **OMARk** to assess the completeness and consistency of the proteome
 7. **SQANTI3** to filter the raw transcriptome and eliminate low quality isoforms
 
+## Table of contents
+- [0. Prerequisites](#0-prerequisites)
+  - [Software installation](#software-installation)
+  - [Data download](#data-download)
+- [1. Gene model training](#1-gene-model-training)
+  - [1.1 Preprocessing](#1.1-preprocessing)  
+  - [1.2 Gene model creation](#1.2-gene-model-creation)
+  - [1.3 Augustus training](#1.3-augustus-training)
+- [2. _Ab initio_ prediction](#2-ab-initio-prediction)
+  - [2.1 Quality Control](#21-quality-control)
+- [3. _Evidence driven_ annotation](#3-evidence-driven-annotation)
+  - [3.1 Preprocessing of lr-RNA seq data](#31-preprocessing-of-lr-rna-seq-data)
+  - [3.2 Hint creation](#32-hint-creation)
+  - [3.3 Final evidence-driven annotation](#33-final-evidence-driven-annotation)
+
+
+
 # 0. Prerequisites 
 
 Before starting the tutorial, it is key to have a clean and organized working environment. The initial step, even before processing any data is to prepare the working environment. In bioinformatics, an organized workspace is vital, so when you come after some time to your project, you can find and understand what you were doing, rather than spend hours searching through weirdly named directories. It is important to always create three directories:
@@ -75,7 +92,7 @@ In any annotation pipeline, the first and most important task is to decide on th
 
 The final structural annotation will be run through different tools, like the previously mentioned BUSCO, AGAT and OMARk. These tools will be used to assess the quality of the annotation, both in terms of completeness, consistency and number of genes.
 
-## 1.1 Preprocessing and gene set creation
+## 1.1 Preprocessing
 
 The first step in the workflow, and where our tutorial begins, is to create a set of high confidence genes, with known their coding sequence (CDS).These genes can originate from various sources, such as a previous version of the organism's genome, a closely related species, or predictions based on the genome under study. For the purposes of this tutorial, we will tackle the most complex scenario: deriving high-confidence genes directly from our own genome. While this may appear redundant, this step is essential to build an initial gene model that will serve as a foundation for evidence-driven gene prediction.
 
@@ -103,7 +120,7 @@ busco command
 busco_gather_aa.py <busco_dir>
 ```
 
-# 1.2 Gene set creation
+# 1.2 Gene model creation
 
 For this following part, once we have all the protein sequences gathered in one file, we will have to cluster them to eliminate redundancy. Augustus will . To achieve this, we will use  `cd-hit` to create gene clusters with 80% of similarity, and selecting the cluster representative for the final gene set. These gene set then will be turned to GeneBank format, so Augustus can work with it properly. One key aspect in this transformation is adding a flanking region to the genes. This is done so Augustus has more context about the region that surrounds the genes, both upstream and downstream. You want to capture information about how the intergenic region looks like, but without accidentally including coding regions in there. This might be hard to estimate some times and dependant on the genome (due to the gene content). To play it safe, we will use a flanking region of 1000bp, as we saw in [Paniagua et al. 2025](https://genome.cshlp.org/content/early/2025/03/04/gr.279864.124.long)
 
@@ -250,7 +267,6 @@ Busco is much more simple to run. It needs the same lineage and parameters as we
 
 **Try to do it on your own :wink:**
 
-`
 <details>
 <summary>BUSCO command</summary>
 ```bash
@@ -259,9 +275,7 @@ busco -i {input.proteome} -o {output} -l {params.lineage} \
 ```
 </details><br>
 
-### Running AGAT
-
-TO BE FILLED
+>TODO: Include busco questions, about the percentage of the completeness and that
 
 # 3. _Evidence driven_ annotation
 
@@ -319,9 +333,11 @@ sqanti3_filter.py rules results/sqanti/isoforms_classification.txt --gtf results
 TODO: Explain a bit SQANTI filter and add the explanation of the json file
 -->
 
-In the second part, we use the filter module of SQANTI
+In the second part, we use the filter module of SQANTI. This module offers a way to remove potential artifacts from your transcriptome data using a **rules-based approach**. This method relies on you, the user, to define specific criteria based on the attributes of your transcripts as determined by the SQANTI3 QC step.
 
-<details><summary>Filter rules</summary>
+In order to curate this transcriptome, since we cannot rely on the structural categories, because the refernce comes from an _ab initio_ prediction, we will only filter using external information. In the case of having short read data, it would be used here to select isoforms in which the junctions are supported.
+
+<details><summary>*Filter rules*</summary>
 The filtering rules are defined in a JSON file, which contains the following:
 
 ```json
@@ -335,6 +351,21 @@ The filtering rules are defined in a JSON file, which contains the following:
   ]
 }
 ```
+### Explicación de las reglas del filtro SQANTI3
+
+Las reglas de filtro que has proporcionado en formato JSON se aplicarán a **todas las categorías estructurales de isoformas para las cuales no se hayan definido reglas específicas**. Esto se debe a que están bajo la clave `"rest"` [1].
+
+Esta configuración define **una única regla** para la categoría "rest". Para que una isoforma sea considerada un **"Isoform"** (y por lo tanto, sea conservada por el filtro), **debe cumplir con todos los siguientes requisitos simultáneamente** [2]:
+
+*   **`"perc_A_downstream_TTS"` debe estar dentro del intervalo de 0 a 59 (inclusive)** [3]. Esto significa que el porcentaje de adeninas en la secuencia genómica inmediatamente posterior al sitio de terminación de la transcripción (TTS) debe ser menor del 60% [4]. Esta condición se utiliza para **filtrar posibles artefactos de intrapriming** [4, 5].
+*   **`"all_canonical"` debe ser igual a `"canonical"`** [3]. Esto indica que **todas las uniones de empalme (splice junctions) de la isoforma deben ser canónicas** [6, 7]. Las uniones canónicas son aquellas que siguen las secuencias GT-AG, GC-AG o AT-AC [8].
+*   **`"RTS_stage"` debe ser igual a `"FALSE"`** [3]. Esto significa que la isoforma **no debe haber sido marcada como sospechosa de ser un artefacto de cambio de transcriptasa reversa (RT-Switching)** [6, 9].
+*   **`"exons"` debe ser igual a `2`** [3]. Esto especifica que la isoforma **debe tener exactamente dos exones**.
+
+En resumen, cualquier isoforma que no pertenezca a una categoría estructural con reglas definidas explícitamente en el archivo JSON **será considerada un artefacto y descartada a menos que cumpla simultáneamente con todas estas cuatro condiciones**: tener un bajo porcentaje de adeninas aguas abajo del TTS, tener todas sus uniones de empalme canónicas, no ser sospechosa de ser un artefacto de RT-Switching y tener exactamente dos exones [2, 10].
+
+Es importante recordar que **si una isoforma tiene un valor faltante (`NA` o similar) en cualquiera de estas columnas, se considerará que no cumple con la condición y será tratada como un artefacto** [10].
+
 </details><br>
 
 **:question: Trivia: How many different genes have been left after filtering?**
