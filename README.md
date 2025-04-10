@@ -26,13 +26,14 @@ We will use a range of tools to obtain both an _ab initio_ and an evidence-drive
 7. **SQANTI3** to filter the raw transcriptome and eliminate low quality isoforms
 
 ## Table of contents
+
 - [0. Prerequisites](#0-prerequisites)
   - [Software installation](#software-installation)
   - [Data download](#data-download)
 - [1. Gene model training](#1-gene-model-training)
-  - [1.1 Preprocessing](#1.1-preprocessing)  
-  - [1.2 Gene model creation](#1.2-gene-model-creation)
-  - [1.3 Augustus training](#1.3-augustus-training)
+  - [1.1 Preprocessing](#11-preprocessing)  
+  - [1.2 Gene model creation](#12-gene-model-creation)
+  - [1.3 Augustus training](#13-augustus-training)
 - [2. _Ab initio_ prediction](#2-ab-initio-prediction)
   - [2.1 Quality Control](#21-quality-control)
 - [3. _Evidence driven_ annotation](#3-evidence-driven-annotation)
@@ -108,7 +109,7 @@ This command will produce a list of the different datasets that BUSCO has availa
 
 ❓**Trivia: Which dataset would you select for the tutorial sample?**  
 <details><summary>Solution</summary>
-Here is some more text that was hidden before.
+Here is some more text that was hidden before.S
 </details><br>
 
 Once the dataset is selected, BUSCO has multiple modes to be run in, and different software that will do the gene search. First of all, BUSCO can be run in `genome`, `proteome` or `transcriptome` mode, which is dependant on the type of input given. In our case, we will use the `genome` mode, as we want to do a full genome search, but you will see that later we have to change for the quality assessment of the final annotation. 
@@ -337,7 +338,7 @@ In the second part, we use the filter module of SQANTI. This module offers a way
 
 In order to curate this transcriptome, since we cannot rely on the structural categories, because the refernce comes from an _ab initio_ prediction, we will only filter using external information. In the case of having short read data, it would be used here to select isoforms in which the junctions are supported.
 
-<details><summary>*Filter rules*</summary>
+<details><summary><strong>Filter rules</strong></summary>
 The filtering rules are defined in a JSON file, which contains the following:
 
 ```json
