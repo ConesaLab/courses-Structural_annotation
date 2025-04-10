@@ -1,17 +1,18 @@
 # Sructural annotation course
 
-This tutorial will guide you through the porcess of creating an structural annotation using a reference genome and long reads RNA data from a PacBio sequencing experiment. 
+This tutorial will guide you through the process of creating an structural annotation using a reference genome and long reads RNA data from a PacBio sequencing experiment. 
 
 <details>
-<summary>Theorical background</summary>
+<summary> 📖 Theoretical background</summary>
 
-The first step in understanding a genome typically involves structural annotation—the process of identifying protein-coding genes and their associated features. One core method used in this phase is ab initio gene prediction, which relies solely on the genomic sequence itself. This approach uses statistical models, such as Hidden Markov Models (HMMs) [1–3], trained to detect signal sensors—including splice sites, start codons, and stop codons [4, 5]—as well as content sensors, like codon usage patterns that are characteristic of coding regions [4].
+The first step in understanding a genome typically involves **structural annotation**—the process of identifying protein-coding genes and their associated features. One core method used in this phase is **_ab initio_ gene prediction**, which relies solely on the genomic sequence itself. This approach uses statistical models, such as **Hidden Markov Models (HMMs)**, trained to detect signal sensors—including **splice sites**, **start codons**, and **stop codons**-as well as content sensors, like **codon usage patterns** that are characteristic of coding regions.
 
-While ab initio prediction is valuable because it does not require prior experimental data [6], it often struggles with lower accuracy, especially in capturing complete gene structures, untranslated regions (UTRs), and alternative isoforms [6, 7]. Moreover, its effectiveness is heavily dependent on the availability of species-specific training models [6].
+While **_ab initio_ prediction** is valuable because it does not require prior experimental data, it often struggles with **lower accuracy**, especially in capturing **complete gene structures**, **untranslated regions (UTRs)**, and **alternative isoforms**. Moreover, its effectiveness is heavily dependent on the availability of **species-specific training models**.
 
-To address these limitations, evidence-based genome annotation combines experimental data with ab initio predictions to enhance accuracy [8, 9]. Among the most powerful sources of evidence is long-read RNA sequencing (lr-RNA seq) [10, 11]. Unlike traditional short-read RNA-seq, lr-RNA seq can capture full-length transcripts, offering direct insights into exon-intron boundaries, alternative splicing, transcription start and end sites, and UTRs [8, 11].
+To address these limitations, **evidence-based genome annotation** combines experimental data with _ab initio_ predictions to enhance accuracy. Among the most powerful sources of evidence is **long-read RNA sequencing (lr-RNA seq)**. Unlike traditional short-read RNA-seq, lr-RNA seq can capture **full-length transcripts**, offering direct insights into exon-intron boundaries, alternative splicing, transcription start and end sites, and UTRs.
 
-When used as extrinsic evidence or "hints" [8, 12, 13], lr-RNA seq data can dramatically improve the performance of ab initio gene finders like AUGUSTUS [1, 8, 14, 15]. This integration results in more accurate and complete gene models [8, 16], enabling the identification of novel isoforms and providing a deeper understanding of the transcriptome. Such an approach is especially valuable for the annotation of non-model organisms, where genomic resources are often limited [8, 11, 17].
+When used as extrinsic evidence or **"hints"**, lr-RNA seq data can dramatically improve the performance of _ab initio_ gene finders like AUGUSTUS. This integration results in **more accurate and complete gene models**, enabling the identification of **novel isoforms** and providing a deeper understanding of the transcriptome. Such an approach is especially valuable for the **annotation of non-model organisms**, where genomic resources are often limited.
+
 </details><br>
 
 We will use a range of tools to obtain both an _ab initio_ and an evidence-driven annotation. The tools that we will use are:
@@ -26,17 +27,19 @@ We will use a range of tools to obtain both an _ab initio_ and an evidence-drive
 
 # 0. Prerequisites 
 
-Before starting the tutorial, it is key to have a clean and organized working environment. The first step, even before processing any data is to prepare the working environment. In bioinformatics, an organized workspace is vital, so when you come after some time to your project, you can find and understand whant you were doing, rather thatn spend hours searching through weirldy named directories. It is inportant to always create three directories:
+Before starting the tutorial, it is key to have a clean and organized working environment. The initial step, even before processing any data is to prepare the working environment. In bioinformatics, an organized workspace is vital, so when you come after some time to your project, you can find and understand what you were doing, rather than spend hours searching through weirdly named directories. It is important to always create three directories:
 
 
 - scripts: all the scripts will be stored here, with meaningful names
 - data: Raw data will go in here and, if you want and need, databases
-- results: Create a sub directory for every different process you do. If you run a process multiple times with different parameters, include them in the directory name, so you will differenciate them in the future.
+- results: Create a sub directory for every different process you do. If you run a process multiple times with different parameters, include them in the directory name, so you will differentiate them in the future.
 
 ```bash
 mkdir scripts
 mkdir data
 ```
+
+### Software installation
 
 Most of the tools can be directly installed using conda (or mamba), with the exception of SQANTI3, which needs to be downloaded from GitHub and the scripts added to the path. This is simple and can be done by following [this tutorial](https://github.com/ConesaLab/SQANTI3/wiki/Dependencies-and-installation).
 
@@ -51,12 +54,26 @@ conda env create -f tools/sqanti3/SQANTI3.conda_env.yml
 ```
 </details><br>
 
+For the rest of the tools, you can install their environments, which you will find in the directory `tools/conda_envs`. You can install them by running the following command:
+
+```bash
+mamba create env -n <tool_name> -f tools/conda_envs/<tool_name>.yml
+```
+
+### Data download
+
+For the tutorial, we will use a mouse 
+> TODO: Fill this once the dataset is decided upon
+
+
 # 1. Gene model training
 
-AUGUSTUS has multiple gene models that can be used to produce an initial annotation on a given genome. However, this models are tailored to specific species, being adapted to their genomes and gene content. Thus, in the case of having a species that is not present within Augustus model, we need to create our own gene model. In order to achieve this, in this tutorial we will create two main resources: 
+In any annotation pipeline, the first and most important task is to decide on the **gene model** that will be used by the prediction tool. AUGUSTUS has multiple gene models that can be used to produce an initial annotation on a given genome. However, this models are tailored to specific species, being adapted to their genomes and gene content. Thus, in the case of having a species that is not present within Augustus model, we need to create our own gene model. In order to achieve this, in this tutorial we will create two main resources: 
 
 1. A gene model from a set of high-confidence genes
 2. Hints derived from an lr-RNASeq experiment
+
+The final structural annotation will be run through different tools, like the previously mentioned BUSCO, AGAT and OMARk. These tools will be used to assess the quality of the annotation, both in terms of completeness, consistency and number of genes.
 
 ## 1.1 Preprocessing and gene set creation
 
@@ -70,16 +87,16 @@ BUSCO offers multiple lineage-specific datasets tailored to different lineages o
 busco --list-dataset
 ```
 
-This command will produce a list of the different datasets that BUSCO has available in its database. You will have to select the closest to you sample's taxonomy. 
+This command will produce a list of the different datasets that BUSCO has available in its database. You will have to select the closest to your sample's taxonomy. 
 
 ❓**Trivia: Which dataset would you select for the tutorial sample?**  
 <details><summary>Solution</summary>
 Here is some more text that was hidden before.
 </details><br>
 
-Once the dataset is selected, BUSCO has multiple modes to be run in, and different software that will do the gene search. First of all, BUSCO can be run in `genome`, `proteome` or `transcriptome` mode, which is dependant on the type of input given. In our case, we will use the `genome` mode, as we want to do a full genome search, but you will see that later we have to change for the quality assessment of the final annotaiton. 
+Once the dataset is selected, BUSCO has multiple modes to be run in, and different software that will do the gene search. First of all, BUSCO can be run in `genome`, `proteome` or `transcriptome` mode, which is dependant on the type of input given. In our case, we will use the `genome` mode, as we want to do a full genome search, but you will see that later we have to change for the quality assessment of the final annotation. 
 
-When it comes to the gene prediction tool, for eukaryotes there are three options: `miniprot`. `augustus` and `metaeuk`. Each of this programs is recommended for a specific situation, being miniprot the default in eukaryote genomes for its speed and accuracy. In our case, we will use miniprot, for the sake of time, as it is a gene mapper, rather than predictior. Since we only want to find the core genes from the list, miniprot will be more than enough. After running BUSCO, ignore the quality results of the genome, as we are only interested in the genes that were found by the tool. The sequences of those genes can be directly found within BUSCO intermediate files. To gather all the found sequences and change the genes. 
+When it comes to the gene prediction tool, for eukaryotes there are three options: `miniprot`. `augustus` and `metaeuk`. Each of this programs is recommended for a specific situation, being miniprot the default in eukaryote genomes for its speed and accuracy. In our case, we will use miniprot, for the sake of time and resources, as it is a gene mapper, rather than a predictor. Since we only want to find the core genes from the list, miniprot will be more than enough. After running BUSCO, ignore the quality results of the genome, as we are only interested in the genes that were found by the tool. The sequences of those genes can be directly found within BUSCO intermediate files. To gather all the found sequences and change the genes. 
 
 ```bash
 busco command
@@ -88,7 +105,7 @@ busco_gather_aa.py <busco_dir>
 
 # 1.2 Gene set creation
 
-For this following part, once we have all the protein sequences gathered in one file, we will have to cluster them to eliminate redundancy. Augustus will . To achieve this, we will use  `cd-hit` to create gene clusters with 80% of similarity, and selecting the cluster representative for the final gene set. These gene set then will be turned to GeneBank format, so Augustus can work with it propperly. One key aspect in this transformation is adding a flanking region to the genes. This is done so Augustus has more context about the region that surrounds the genes, both upstream and downstream. You want to capture information about how the intergenic region looks like, but without accidentally including coding regions in there. This might be hard to estimate some times and dependant on the genome (due to the gene content). To play it safe, we will use a flanking region of 1000bp, as we saw in [Paniagua et al. 2025](https://genome.cshlp.org/content/early/2025/03/04/gr.279864.124.long)
+For this following part, once we have all the protein sequences gathered in one file, we will have to cluster them to eliminate redundancy. Augustus will . To achieve this, we will use  `cd-hit` to create gene clusters with 80% of similarity, and selecting the cluster representative for the final gene set. These gene set then will be turned to GeneBank format, so Augustus can work with it properly. One key aspect in this transformation is adding a flanking region to the genes. This is done so Augustus has more context about the region that surrounds the genes, both upstream and downstream. You want to capture information about how the intergenic region looks like, but without accidentally including coding regions in there. This might be hard to estimate some times and dependant on the genome (due to the gene content). To play it safe, we will use a flanking region of 1000bp, as we saw in [Paniagua et al. 2025](https://genome.cshlp.org/content/early/2025/03/04/gr.279864.124.long)
 
 ```bash
 # Clustering
@@ -102,7 +119,7 @@ gff2gbSmallDNA.pl {input.gff} {input.genome} $flanking_region {output} &> {log}
 
 ```
 
-It has been observed that AUGUSTUS may suffer from having too many genes in the training set. In these cases, the more you feed the model is not always the merrier. As it is usually said "trash in, trahs out". That is why, for instance, we only search for highly conserved genes to do the training. Also, there is a limit of genes where the model reaches a plateau in its prediction, which is dependant on the number of genes used for training. In our most recent assessment ([Paniagua et al., 2025](https://genome.cshlp.org/content/early/2025/03/04/gr.279864.124.long)), it was determined that a flanking size of 1000bp and more than 2000 genes yielded great results, with 5000 genes being the best option (anything above that did not improve the results). That parameter can be changed in the following script:
+It turns out that when it comes to training AUGUSTUS, more is not always better. In fact, having too many genes in the training set can actually hurt performance — classic case of "trash in, trash out." That’s why we focus on selecting only highly conserved genes for training, to make sure we’re feeding the model with the highest quality data. On top of that, there’s a point where adding more genes doesn’t really improve predictions — the model sort of hits a plateau. In our latest evaluation ([Paniagua et al., 2025](https://genome.cshlp.org/content/early/2025/03/04/gr.279864.124.long)), we found that using a flanking size of 1000 bp and over 2000 genes worked really well, with 5000 genes being the sweet spot. Beyond that, adding more genes didn’t make much of a difference. You can adjust this parameter in the following script:
 
 ```bash
 subset_genes.py <gene_file> <gene_number>
@@ -110,7 +127,7 @@ subset_genes.py <gene_file> <gene_number>
 
 ## 1.3 Augustus training
 
-Once the gene set is prepared, lets dive into AUGUSTUS. Augustus has some models already precomputed using their curated set of genes, and this models are ready to use after installing Augusutus in your machine. You can check those models available by running `augustus --species=help`. **❓Trivia: Which species has the most models available?**
+Once the final gene set is ready, lets dive into AUGUSTUS. Augustus has some models that already are precomputed using their curated set of genes, and this models are ready to use after installing Augusutus in your machine. You can check those models available by running `augustus --species=help`. **❓Trivia: Which species has the most models available?**
 
 <details><summary>Solution</summary>
 _Coprinus cinereus_ has 4 models 
@@ -122,16 +139,16 @@ In our case, we are going to build our own model. For that, first we will have t
 new_species.pl --species=<species_name>
 ```
 
-With that species created, we can go ahead and run the initial training of the model:
+With the profile created, we can go ahead and run the initial training of the model:
 
 ```bash
 etraining --species=<species_name> <input_genes> > <training_results>
 ```
-This initial trainign will update the parameters on the profile of our species under `$AUGUSTUS_CONFIG_PATH/species/<species_name>`. List the diretory and take a look at the files, specifically at the metaparameters. <Insert explanation about augustus metaparemeters, and how they are not that important righ now>. We will have to modify some parameters now to account for the "bad genes". These are those genes that might have a premature stop codon in their sequence. We will get rid of them and update the model so Augustus is more accurate. The first step is to find out which genes had a premature stop codon and then, eliminate them from the input that was given to Augustus training step and retrain the model. If we run augusuts `etraining` again, the old model and its parameter will be updated and overwritten.
+This initial training will update the parameters on the profile of our species under `$AUGUSTUS_CONFIG_PATH/species/<species_name>`. List the directory and take a look at the files, specifically at the metaparameters. <Insert explanation about augustus metaparemeters, and how they are not that important right now>. We will have to modify some parameters now to account for the "bad genes". These are those genes that might have a premature stop codon in their sequence. We will get rid of them and update the model so Augustus is more accurate. The first step is to find out which genes had a premature stop codon and then, eliminate them from the input that was given to Augustus training step and retrain the model. If we run Augusuts `etraining` again, the old model and its parameter will be updated and overwritten.
 
 ```bash
 grep 'in sequence' {input} | cut -f7 -d' ' | sed s/://g | sort -u > {output}
-fitlerGenes.pl <bad_genes> <good_genes> > <filtered_genes>
+filterGenes.pl <bad_genes> <good_genes> > <filtered_genes>
 etraining --species={params.name} {input} > {output}
 ```
 Finally, we will modify the stop codon frequency
@@ -144,7 +161,7 @@ modify_SC_freq.py
 
 # 2. _Ab initio_ prediction
 
-Now that the gene model for our target genome has been created and curated, we will perform the _ab initio_ prediction of the annotaiton. This means that we will only use the gene model to predict the genes and create an structural annotation. Augutus _ab inito_ prediction works by employing a **generalized Hidden Markov Model**, statistically modelling the structure of genes within the genomic sequence, using only the provided gene model as reference.
+Now that the gene model for our target genome has been created and curated, we will perform the _ab initio_ prediction of the annotation. This means that we will only use the gene model to predict the genes and create an structural annotation. Augustus _ab initio_ prediction works by employing a **generalized Hidden Markov Model**, statistically modelling the structure of genes within the genomic sequence, using only the provided gene model as reference.
 
 <details>
 <summary>Breakdown of the AUGUSTUS process</summary>
@@ -181,14 +198,29 @@ Include number
 
 We will use three tools for the quality control of the annotation created by Augustus. These tools will be BUSCO, Omark and AGAT. 
 
-1. [AGAT](https://github.com/NBISweden/AGAT) is a suite of scripts and modules that  has multiple functinons, which can be obtained via `agat --tools`. In our case, it will help us extract the basic information about the annotation, such as the number of genes. This can be run directly on the gtf COMPLETE AGAT ONCE IT IS INCLUDED IN THE PIPELIN
+1. [AGAT](https://github.com/NBISweden/AGAT) is a suite of scripts and modules that  has multiple functions, which can be obtained via `agat --tools`. In our case, it will help us extract the basic information about the annotation, such as the number of genes. 
 
-2. [BUSCO](https://busco.ezlab.org/busco_userguide.html#protein-mode) run in protein mode will give a fast approximation of the number of core genes that were predicted, offering a measure of completness to the annotation. 
+2. [BUSCO](https://busco.ezlab.org/busco_userguide.html#protein-mode) run in protein mode will give a fast approximation of the number of core genes that were predicted, offering a measure of completeness to the annotation. 
 
 3. [OMARk](https://github.com/DessimozLab/OMArk) is a software similar to BUSCO, since it produces a quality assessment of the proteome based on the completeness and consitency. However, it has a twist, as it is able to detect contamination from closely related species.
 
+### Running AGAT
 
-However, before running OMARk and BUSCO, we need to prepare the proteome from Augustus output. In order to do so, Augustus has some predefined perl script that extracts the protein sequences from the main file (thus the `protein=on` flag in the prediction).
+We will use two scripts from AGAT: `agat_convert_sp_gxf2gxf.pl` and `agat_sp_statistics.pl`. The first one will convert the Augustus output to GFF3 format, which is the standard format for an annotation, eliminating all the extra information that Augustus adds to the output. The second one will give us a summary of the annotation, including the number of genes, exons, introns and other features. 
+
+```bash
+agat_convert_sp_gxf2gxf.pl -g {input.annot} -o {output.gff3}
+agat_sp_statistics.pl --gff {input.gff3} -o {output}
+```
+
+Take a look at AGAT's statistics, as it will give you a summary of the annotation. **:question: Trivia: How many genes have been predicted?**
+>TODO: Include the number of genes predicted
+<details><summary>Solution</summary>
+Include number
+</details><br>
+
+
+Before running OMARk and BUSCO, we need to prepare the proteome from Augustus output. In order to do so, Augustus has some predefined perl script that extracts the protein sequences from the main file (thus the `protein=on` flag in the prediction).
 
 ```bash
 getAnnoFasta.pl {input.annot} --seqfile={input.reference}
@@ -214,7 +246,7 @@ omark -f {input.omamer} -d {input.omark_db} -o $(dirname {output})
 
 ### Running BUSCO
 
-Busco is much more simple to run. It needs the same lineage and paramters as we used with the whole genome, but this time we will use the proteome as input. 
+Busco is much more simple to run. It needs the same lineage and parameters as we used with the whole genome, but this time we will use the proteome as input. 
 
 **Try to do it on your own :wink:**
 
@@ -237,9 +269,9 @@ In this final section, lnc-RNA sequencing data will be integrated as part of the
 
 ## 3.1 Preprocessing of lr-RNA seq data
 
-We will assume that we have a final file with the processed RNA long reads. There are many ways in which we can process them and obtain a final transcriptome. In this course, we will use [IsoQuant](https://github.com/ablab/IsoQuant), as it usually yields the most consistent results, with the cost of misperforming in novel trancsripts discovery. However, for our pursposes, it will be better to have a more conservative approach. Another pipeline for this task could be [IsoSeq3](https://isoseq.how/), which is more complex, as processes the reads from their initial subread state, shows more diversity and less consistency among biological replicates. 
+We will assume that we have a final file with the processed RNA long reads. There are many ways in which we can process them and obtain a final transcriptome. In this course, we will use [IsoQuant](https://github.com/ablab/IsoQuant), as it usually yields the most consistent results, with the cost of misperforming in novel transcripts discovery. However, for our purposes, it will be better to have a more conservative approach. Another pipeline for this task could be [IsoSeq3](https://isoseq.how/), which is more complex, as processes the reads from their initial subread state, shows more diversity and less consistency among biological replicates. 
 
-With this in mind, lets run isoquant 😄
+With this in mind, lets run IsoQuant 😄
 
 ```bash
 isoquant.py --reference /PATH/TO/reference_genome.fasta \
@@ -247,7 +279,7 @@ isoquant.py --reference /PATH/TO/reference_genome.fasta \
   --data_type pacbio -o OUTPUT_FOLDER
 ```
 
-With the raw transcriptome in ready, it is time to curate it before use. For that, we will use [SQANTI3](https://github.com/ConesaLab/SQANTI3). SQANTI3 is a tool desinged for the quality control, curation and annotation of lon-read trasnscriptomes, specifically desinged for lr-RNA data. The main module that we will use is the Quality Control module (SQANTI3 QC). This module operates by classifiying all the isoforms within a transciptome into one of the possible structural categories. As well, it has the ability to integrate a variaty of orthogonal data into the results and the classification process, such as short-read data or CAGE-seq data. If you want to know more about it, you can check out the [wiki](https://github.com/ConesaLab/SQANTI3/wiki)
+With the raw transcriptome in ready, it is time to curate it before use. For that, we will use [SQANTI3](https://github.com/ConesaLab/SQANTI3). SQANTI3 is a tool designed for the quality control, curation and annotation of lon-read transcriptomes, specifically designed for lr-RNA data. The main module that we will use is the Quality Control module (SQANTI3 QC). This module operates by classifying all the isoforms within a transcriptome into one of the possible structural categories. As well, it has the ability to integrate a variety of orthogonal data into the results and the classification process, such as short-read data or CAGE-seq data. If you want to know more about it, you can check out the [wiki](https://github.com/ConesaLab/SQANTI3/wiki)
 
 <details>
 <summary><strong>SQANTI3 structural categories</strong></summary>
@@ -268,7 +300,7 @@ In order to run SQANTI3 we need three mandatory inputs:
 2. Reference genome, in fasta format
 3. Reference annotation, in gtf format
 
-In our case, we already have the transcriptome and the reference genome, and we will use the _ab initio_ annotation as the reference annotation. This is because we do not care right now about the structural categories, but we want the other information that SQANTI3 provides, such as if any isoform has Retrotrasncriptase switching (RT-Switching) or non-cannonical junctions. We will use these parameters as the initial filters of our transcriptome.
+In our case, we already have the transcriptome and the reference genome, and we will use the _ab initio_ annotation as the reference annotation. This is because we do not care right now about the structural categories, but we want the other information that SQANTI3 provides, such as if any isoform has Retrotrasncriptase switching (RT-Switching) or non-canonical junctions. We will use these parameters as the initial filters of our transcriptome.
 
 ```bash 
 conda activate sqanti3
@@ -450,18 +482,3 @@ With this, you have reached the end of this tutorial. You have learned how to cr
 
 Now, compare the results of the first and second annotation. What are the main differences? Do you think that the lr-RNA seq data improved the prediction? Why?
 
-
-## Introduction to Genome Annotation
-
-The initial step in deciphering a genome often involves **structural annotation**, which is primarily the identification of **protein-coding genes** and their features. One fundamental method is **ab initio gene prediction**. This computational approach identifies genes based solely on the **genomic DNA sequence**, employing **statistical models** such as **Hidden Markov Models (HMMs)**. These models are trained to recognize intrinsic **sequence signals**, including **splice sites, start and stop codons**, and characteristic **sequence content**, like **codon usage bias** within coding regions [1, 2]. While the advantage of *ab initio* prediction is that it can discover genes without prior experimental data, it often exhibits **limitations in accuracy**, particularly in predicting complete gene structures, untranslated regions (UTRs), and the full spectrum of alternative splice variants. Furthermore, the effectiveness of *ab initio* methods is highly dependent on the availability of **species-specific training parameters** for the underlying statistical models [3].
-
-To address the inherent limitations of *ab initio* approaches, **evidence-driven genome annotation** has emerged as a powerful alternative. This strategy integrates **experimental data** with *ab initio* gene prediction programs to enhance their accuracy and reliability [4, 5]. A particularly transformative source of evidence is **long-read RNA sequencing (lr-RNA seq)** [6, 7]. Unlike traditional short-read RNA-seq, lr-RNA seq technologies can sequence **full-length transcript molecules**, providing direct and comprehensive information about **exon-intron boundaries, alternative splicing events, transcription start and polyadenylation sites, and even untranslated regions (UTRs)** [5, 7, 8]. By utilizing processed lr-RNA seq data as **extrinsic evidence** or "hints" for *ab initio* gene finders like **AUGUSTUS** [1, 4], the accuracy and completeness of gene predictions can be significantly improved [4, 5]. This evidence-based integration facilitates the refinement of gene models, the identification of novel isoforms, and a more complete understanding of the transcriptome, proving especially valuable for the annotation of **non-model organisms** where pre-existing genomic information may be limited [4, 7].
-
-## References
-
-1. Scalzitti, N., Jeannin-Girardon, A., Collet, P., Poch, O., & Thompson, J. D. (2020). A benchmark study of ab initio gene prediction methods in diverse eukaryotic organisms. *BMC Genomics*, *21*(1), 293.
-2. Stanke, M., & Waack, S. (2003). Gene prediction with a hidden Markov model and a new intron submodel. *Bioinformatics*, *19*(Suppl. 2), ii215–ii225.
-3.   Stanke, M., Schöffmann, O., Morgenstern, B., & Waack, S. (2006). Gene prediction in eukaryotes with a generalized hidden Markov model that uses hints from external sources. *BMC Bioinformatics*, *7*, 62.
-4.   Yandell, M., & Ence, D. (2012). A beginner’s guide to eukaryotic genome annotation. *Nature Reviews Genetics*, *13*(5), 329–342.
-5.   Paniagua, A., Agustín-García, C., Pardo-Palacios, F. J., Brown, T., De Maria, M., Denslow, N. D., Mazzoni, C. J., & Conesa, A. (2025). Evaluation of strategies for evidence-driven genome annotation using long-read RNA-seq. *Genome Research*, *35*(1), 1–12.
-6.   Stanke, M., Steinkamp, R., Waack, S., & Morgenstern, B. (2004). AUGUSTUS: a web server for gene finding in eukaryotes. *Nucleic Acids Research*, *32*(Web Server issue), W309–W312.
