@@ -1,4 +1,4 @@
-# Sructural annotation course
+# Structural annotation course
 
 This tutorial will guide you through the process of creating an structural annotation using a reference genome and long reads RNA data from a PacBio sequencing experiment. 
 
